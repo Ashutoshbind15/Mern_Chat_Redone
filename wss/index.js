@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import Message from "./models/Message.js";
+import Room from "./models/Room.js";
 // import Message from "./models/Message.js";
 
 const io = new Server(8080, {
@@ -41,6 +43,27 @@ io.on("connection", (socket) => {
 
     socket.to(room).emit("newuserjoins", {
       user: socket.user.username,
+    });
+  });
+
+  socket.on("messagesend", async (data) => {
+    const { roomId, text } = data;
+
+    const newMessage = new Message({
+      roomId: roomId,
+      text,
+      user: socket.user.id,
+    });
+
+    const room = await Room.findById(roomId);
+    room.messages.push(newMessage._id);
+
+    await room.save();
+    newMessage.save();
+
+    io.to(roomId).emit("messagereceive", {
+      user: socket.user.username,
+      text: text,
     });
   });
 });
