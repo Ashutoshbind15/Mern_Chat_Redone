@@ -1,4 +1,4 @@
-# Real-Time Chat Application with Redis Pub/Sub and WebSocket Servers (In Dev Phase, THIS IS THE PROPOSED ARCHITECTURE)
+# Real-Time Chat Application with Redis Pub/Sub and WebSocket Servers (In Dev Phase, Accomplished cleaner code via psubscribe in redis)
 
 This repository contains the implementation of a real-time chat application that leverages Redis Pub/Sub and WebSocket servers to manage chat rooms and real-time messaging.
 
