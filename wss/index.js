@@ -5,6 +5,25 @@ import Message from "./models/Message.js";
 import Room from "./models/Room.js";
 // import Message from "./models/Message.js";
 import { createClient } from "redis";
+import { Partitioners, Kafka } from "kafkajs";
+
+const kafka = new Kafka({
+  clientId: "chat-app",
+  brokers: ["localhost:9092"],
+});
+
+const producer = kafka.producer({
+  createPartitioner: Partitioners.LegacyPartitioner,
+});
+
+await producer.connect();
+
+const sendMessageKafka = async (roomId, message) => {
+  await producer.send({
+    topic: "chat-messages",
+    messages: [{ key: roomId, value: message }],
+  });
+};
 
 const publisher = await createClient()
   .on("error", (err) => console.log("Redis Client Error", err))
@@ -80,19 +99,28 @@ io.on("connection", (socket) => {
   socket.on("messagesend", async (data) => {
     const { roomId, text } = data;
 
-    const newMessage = new Message({
+    // const newMessage = new Message({
+    //   roomId: roomId,
+    //   text,
+    //   user: socket.user.id,
+    // });
+
+    // const room = await Room.findById(roomId);
+    // room.messages.push(newMessage._id);
+
+    // await room.save();
+    // await newMessage.save();
+
+    const msgData = {
       roomId: roomId,
       text,
       user: socket.user.id,
-    });
+    };
 
-    const room = await Room.findById(roomId);
-    room.messages.push(newMessage._id);
-
-    await room.save();
-    await newMessage.save();
-
-    console.log(`User ${socket.user.username} sent message in room ${roomId}`);
+    sendMessageKafka(roomId, JSON.stringify(msgData));
+    console.log(
+      `User ${socket.user.username} sent message in room ${roomId} to Kafka`
+    );
 
     // io.to(roomId).emit("messagereceive", {
     //   user: socket.user.username,
