@@ -10,15 +10,12 @@ const kafka = new Kafka({
 
 const consumer = kafka.consumer({ groupId: "chat-group" });
 
+mongoose.connect("mongodb://localhost:27017/prim");
+
 const processMessage = async (data) => {
   const jsondata = JSON.parse(data);
-  const { roomId, text } = jsondata;
-
-  const newMessage = new Message({
-    roomId: roomId,
-    text,
-    user: socket.user.id,
-  });
+  const newMessage = new Message(jsondata);
+  const { roomId } = jsondata;
 
   const room = await Room.findById(roomId);
   room.messages.push(newMessage._id);
@@ -33,9 +30,10 @@ const run = async () => {
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
-      const roomId = message.key.toString();
-      const chatMessage = message.value.toString();
-      console.log(`Room: ${roomId}, Message: ${chatMessage}`);
+      const key = message.key.toString("utf-8");
+      const value = message.value.toString("utf-8");
+
+      processMessage(value);
     },
   });
 };

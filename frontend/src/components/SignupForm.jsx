@@ -11,6 +11,7 @@ const SignupForm = () => {
     try {
       await signup(username, password);
     } catch (error) {
+      console.log(error);
       alert("Signup failed!");
     }
   };
