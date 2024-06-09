@@ -1,9 +1,6 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import Message from "./models/Message.js";
-import Room from "./models/Room.js";
-// import Message from "./models/Message.js";
 import { createClient } from "redis";
 import { Partitioners, Kafka } from "kafkajs";
 
@@ -45,13 +42,13 @@ const io = new Server(8080, {
 const secretKey = process.env.JWT_SECRET || "secret"; // Same secret key as in the PBS
 mongoose.connect("mongodb://localhost:27017/prim");
 
-subscriber.pSubscribe("ps-message:*", (message, channel) => {
+subscriber.pSubscribe("message:*", (message, channel) => {
   const [_, roomId] = channel.split(":");
   console.log(`Received message in room ${roomId}: ${message}`);
   io.to(roomId).emit("messagereceive", JSON.parse(message));
 });
 
-subscriber.pSubscribe("ps-join:*", (message, channel) => {
+subscriber.pSubscribe("join:*", (message, channel) => {
   const [_, roomId] = channel.split(":");
   console.log(`User joined room ${roomId}: ${message}`);
   io.to(roomId).emit("newuserjoins", JSON.parse(message));
@@ -89,7 +86,7 @@ io.on("connection", (socket) => {
     // });
 
     publishMessage(
-      `ws-join:${room}`,
+      `join:${room}`,
       JSON.stringify({
         user: socket.user.username,
       })
@@ -128,7 +125,7 @@ io.on("connection", (socket) => {
     // });
 
     publishMessage(
-      `ws-message:${roomId}`,
+      `message:${roomId}`,
       JSON.stringify({
         user: socket.user.username,
         text: text,
