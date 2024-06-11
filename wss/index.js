@@ -4,10 +4,23 @@ import mongoose from "mongoose";
 import { createClient } from "redis";
 import { Partitioners, Kafka } from "kafkajs";
 
-const kafka = new Kafka({
-  clientId: "chat-app",
-  brokers: ["localhost:9092"],
-});
+import dotenv from "dotenv";
+dotenv.config();
+
+let kafka;
+
+if (process.env.NODE_ENV !== "production") {
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: ["localhost:9092"],
+  });
+} else {
+  console.log("Connecting to Kafka broker:");
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: [process.env.KAFKA_BROKER],
+  });
+}
 
 const producer = kafka.producer({
   createPartitioner: Partitioners.LegacyPartitioner,
