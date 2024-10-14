@@ -1,16 +1,33 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import Message from "./models/Message.js";
-import Room from "./models/Room.js";
-// import Message from "./models/Message.js";
 import { createClient } from "redis";
 import { Partitioners, Kafka } from "kafkajs";
 
-const kafka = new Kafka({
-  clientId: "chat-app",
-  brokers: ["localhost:9092"],
-});
+import dotenv from "dotenv";
+dotenv.config();
+
+let kafka;
+
+const createRedisProdString = () => {
+  return process.env.REDIS_STRING;
+};
+
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.KAFKA_ENV !== "production"
+) {
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: ["localhost:9092"],
+  });
+} else {
+  console.log("Connecting to Kafka broker:");
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: [process.env.KAFKA_BROKER],
+  });
+}
 
 const producer = kafka.producer({
   createPartitioner: Partitioners.LegacyPartitioner,
@@ -25,13 +42,30 @@ const sendMessageKafka = async (roomId, message) => {
   });
 };
 
-const publisher = await createClient()
-  .on("error", (err) => console.log("Redis Client Error", err))
-  .connect();
-const subscriber = await createClient()
-  .on("error", (err) => console.log("Redis Client Error", err))
-  .connect();
+let publisher;
+let subscriber;
 
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.REDIS_ENV !== "production"
+) {
+  publisher = await createClient()
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+  subscriber = await createClient()
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+} else {
+  const redisConnectionString = createRedisProdString();
+
+  publisher = await createClient(redisConnectionString)
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+
+  subscriber = await createClient(redisConnectionString)
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+}
 const publishMessage = (channel, message) => {
   publisher.publish(channel, message);
 };
@@ -45,13 +79,13 @@ const io = new Server(8080, {
 const secretKey = process.env.JWT_SECRET || "secret"; // Same secret key as in the PBS
 mongoose.connect("mongodb://localhost:27017/prim");
 
-subscriber.pSubscribe("ps-message:*", (message, channel) => {
+subscriber.pSubscribe("message:*", (message, channel) => {
   const [_, roomId] = channel.split(":");
   console.log(`Received message in room ${roomId}: ${message}`);
   io.to(roomId).emit("messagereceive", JSON.parse(message));
 });
 
-subscriber.pSubscribe("ps-join:*", (message, channel) => {
+subscriber.pSubscribe("join:*", (message, channel) => {
   const [_, roomId] = channel.split(":");
   console.log(`User joined room ${roomId}: ${message}`);
   io.to(roomId).emit("newuserjoins", JSON.parse(message));
@@ -89,7 +123,7 @@ io.on("connection", (socket) => {
     // });
 
     publishMessage(
-      `ws-join:${room}`,
+      `join:${room}`,
       JSON.stringify({
         user: socket.user.username,
       })
@@ -128,7 +162,7 @@ io.on("connection", (socket) => {
     // });
 
     publishMessage(
-      `ws-message:${roomId}`,
+      `message:${roomId}`,
       JSON.stringify({
         user: socket.user.username,
         text: text,

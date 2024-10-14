@@ -2,11 +2,23 @@ const { Kafka } = require("kafkajs");
 const mongoose = require("mongoose");
 const Message = require("./models/Message.js");
 const Room = require("./models/Room.js");
+const dotenv = require("dotenv");
 
-const kafka = new Kafka({
-  clientId: "chat-app",
-  brokers: ["localhost:9092"],
-});
+dotenv.config();
+
+let kafka;
+
+if (process.env.NODE_ENV !== "production") {
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: ["localhost:9092"],
+  });
+} else {
+  kafka = new Kafka({
+    clientId: "chat-app",
+    brokers: [process.env.KAFKA_BROKER],
+  });
+}
 
 const consumer = kafka.consumer({ groupId: "chat-group" });
 
