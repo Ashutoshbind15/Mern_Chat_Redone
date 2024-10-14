@@ -9,7 +9,14 @@ dotenv.config();
 
 let kafka;
 
-if (process.env.NODE_ENV !== "production") {
+const createRedisProdString = () => {
+  return process.env.REDIS_STRING;
+};
+
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.KAFKA_ENV !== "production"
+) {
   kafka = new Kafka({
     clientId: "chat-app",
     brokers: ["localhost:9092"],
@@ -35,13 +42,30 @@ const sendMessageKafka = async (roomId, message) => {
   });
 };
 
-const publisher = await createClient()
-  .on("error", (err) => console.log("Redis Client Error", err))
-  .connect();
-const subscriber = await createClient()
-  .on("error", (err) => console.log("Redis Client Error", err))
-  .connect();
+let publisher;
+let subscriber;
 
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.REDIS_ENV !== "production"
+) {
+  publisher = await createClient()
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+  subscriber = await createClient()
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+} else {
+  const redisConnectionString = createRedisProdString();
+
+  publisher = await createClient(redisConnectionString)
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+
+  subscriber = await createClient(redisConnectionString)
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+}
 const publishMessage = (channel, message) => {
   publisher.publish(channel, message);
 };
