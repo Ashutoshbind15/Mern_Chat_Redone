@@ -10,7 +10,7 @@ function App() {
   return (
     <>
       <nav className="mb-4">
-        <ul>
+        <ul className="flex gap-x-2">
           <li>
             <Link to="/">Home</Link>
           </li>
